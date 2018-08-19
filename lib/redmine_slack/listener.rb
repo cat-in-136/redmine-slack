@@ -45,7 +45,7 @@ class SlackListener < Redmine::Hook::Listener
 	def redmine_slack_issues_edit_after_save(context={})
 		issue = context[:issue]
 		journal = context[:journal]
-		journal.details.delete_if { |x| Setting.plugin_redmine_slack[:exclude_fields].split(",").include? x.prop_key.to_s }
+		details = journal.details.reject { |x| Setting.plugin_redmine_slack['exclude_fields'].to_s.split(',').include? x.prop_key.to_s }
 
 		channel = channel_for_project issue.project
 		url = url_for_project issue.project
@@ -53,6 +53,7 @@ class SlackListener < Redmine::Hook::Listener
 		return unless channel and url and Setting.plugin_redmine_slack['post_updates'] == '1'
 		return if issue.is_private?
 		return if journal.private_notes?
+		return if details.empty? and journal.notes.blank?
 
 		assignee_user = get_assignee_user journal
 		mentions = build_mentions(assignee_user, journal.notes, issue.project.identifier)
@@ -60,7 +61,7 @@ class SlackListener < Redmine::Hook::Listener
 
 		attachment = {}
 		attachment[:text] = escape journal.notes if journal.notes
-		attachment[:fields] = journal.details.map { |d| detail_to_field d }
+		attachment[:fields] = details.map { |d| detail_to_field d }
 
 		speak msg, channel, attachment, url
 	end
