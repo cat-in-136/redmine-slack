@@ -370,7 +370,7 @@ private
 			text = ''
 		end
 
-		text.scan(/@[a-z0-9][a-z0-9_\-.]*/).uniq.each do |username|
+		text.scan(/@[a-z0-9][a-z0-9_\-]*/).uniq.each do |username|
 			# Remove the leading @
 			username.slice!(0)
 		end
@@ -399,6 +399,6 @@ private
 
 		# Slack usernames to be mentioned
 		slack_usernames = slack_usernames.uniq.map { |name| '@' + name }
-		slack_usernames.present? ? "\n" + slack_usernames.join(' ') : nil
+		slack_usernames.present? ? "\nTo: " + slack_usernames.join(' ') : nil
 	end
 end
