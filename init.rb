@@ -28,4 +28,9 @@ ActionDispatch::Callbacks.to_prepare do
 	unless Issue.included_modules.include? RedmineSlack::IssuePatch
 		Issue.send(:include, RedmineSlack::IssuePatch)
 	end
+
+	require_dependency 'news'
+	unless News.included_modules.include? RedmineSlack::NewsPatch
+		News.send(:include, RedmineSlack::NewsPatch)
+	end
 end
