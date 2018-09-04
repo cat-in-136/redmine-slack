@@ -113,6 +113,37 @@ class SlackListener < Redmine::Hook::Listener
 		speak msg, channel, attachment, url
 	end
 
+	def redmine_slack_news_new_after_save(context={})
+		return unless Setting.plugin_redmine_slack['post_news_updates'] == '1'
+		news = context[:news]
+		project = news.project
+		user = news.author
+		project_url = "<#{object_url project}|#{escape project}>"
+		news_url = "<#{object_url news}|#{news.title}>"
+		comment = "[#{project_url}] #{news_url} created by *#{user}*"
+		channel = channel_for_project project
+		url = url_for_project project
+		attachment = {}
+		attachment[:pretext] = escape news.summary if news.summary
+		attachment[:text] = escape news.description if news.description
+		speak comment, channel, attachment, url
+	end
+	def redmine_slack_news_edit_after_save(context={})
+		return unless Setting.plugin_redmine_slack['post_news_updates'] == '1'
+		news = context[:news]
+		project = news.project
+		user = news.author
+		project_url = "<#{object_url project}|#{escape project}>"
+		news_url = "<#{object_url news}|#{news.title}>"
+		comment = "[#{project_url}] #{news_url} updated by *#{user}*"
+		channel = channel_for_project project
+		url = url_for_project project
+		attachment = {}
+		attachment[:pretext] = escape news.summary if news.summary
+		attachment[:text] = escape news.description if news.description
+		speak comment, channel, attachment, url
+	end
+
 	def controller_messages_new_after_save(context = { })
 		return unless Setting.plugin_redmine_slack['post_message_updates'] == '1'
 
