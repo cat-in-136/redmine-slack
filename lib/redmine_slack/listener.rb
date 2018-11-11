@@ -123,6 +123,7 @@ class SlackListener < Redmine::Hook::Listener
 		comment = "[#{project_url}] #{news_url} created by *#{user}*"
 		channel = channel_for_project project
 		url = url_for_project project
+		return unless channel and url
 		attachment = {}
 		attachment[:pretext] = escape news.summary if news.summary
 		attachment[:text] = escape news.description if news.description
@@ -138,6 +139,7 @@ class SlackListener < Redmine::Hook::Listener
 		comment = "[#{project_url}] #{news_url} updated by *#{user}*"
 		channel = channel_for_project project
 		url = url_for_project project
+		return unless channel and url
 		attachment = {}
 		attachment[:pretext] = escape news.summary if news.summary
 		attachment[:text] = escape news.description if news.description
@@ -157,6 +159,7 @@ class SlackListener < Redmine::Hook::Listener
 
 		channel = channel_for_project project
 		url = url_for_project project
+		return unless channel and url
 
 		attachment = {}
 		attachment[:text] = "#{escape message.content}"
@@ -177,6 +180,7 @@ class SlackListener < Redmine::Hook::Listener
 
 		channel = channel_for_project project
 		url = url_for_project project
+		return unless channel and url
 
 		attachment = {}
 		attachment[:text] = "#{escape message.content}"
@@ -200,6 +204,7 @@ class SlackListener < Redmine::Hook::Listener
 
 		channel = channel_for_project project
 		url = url_for_project project
+		return unless channel and url
 
 		attachment = nil
 		if not page.content.comments.empty?
