@@ -4,7 +4,13 @@
 </p>
 
 <p>
-	Generate an "Incoming WebHook" URL from the <a href="https://slack.com/apps/build/custom-integration">apps configuration page on Slack</a>. This URL can be changed on a per-project basis by creating a <a href="/custom_fields/new?type=ProjectCustomField">project custom field</a> named "Slack URL" (without quotes).
+	Generate an "Incoming WebHook" URL from the <a href="https://slack.com/apps/build/custom-integration">apps configuration page on Slack</a>.
+	This URL can be changed on a per-project basis by creating
+	<%= link_to 'a project custom field named "Slack URL" (without quotes)',
+		:controller => "custom_fields", :action => "new",
+		:type => ProjectCustomField,
+		"custom_field[field_format]" => "string",
+		"custom_field[name]" => "Slack URL" %>.
 </p>
 
 <p>
@@ -13,8 +19,13 @@
 </p>
 
 <p>
-	The channel can be changed on a per-project basis by creating a
-	<a href="/custom_fields/new?type=ProjectCustomField">project custom field</a> named "Slack Channel" (without quotes). <strong>For public channels, this value should start with a <em>#</em>.</strong>
+	The channel can be changed on a per-project basis by creating
+	<%= link_to 'a project custom field named "Slack Channel" (without quotes)',
+		:controller => "custom_fields", :action => "new",
+		:type => ProjectCustomField,
+		"custom_field[field_format]" => "string",
+		"custom_field[name]" => "Slack Channel" %>.
+	<strong>For public channels, this value should start with a <em>#</em>.</strong>
 </p>
 
 <p>
