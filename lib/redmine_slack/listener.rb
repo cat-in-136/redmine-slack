@@ -32,10 +32,10 @@ class SlackListener < Redmine::Hook::Listener
 		} if Setting.plugin_redmine_slack[:display_watchers] == 'yes'
 
 		directSpeak issue, msg, attachment, url if Setting.plugin_redmine_slack[:direct_speak] == '1'
-		
+
 		return unless channel and url
 		return if issue.is_private?
-		
+
 		speak msg, channel, attachment, url
 	end
 
@@ -51,20 +51,9 @@ class SlackListener < Redmine::Hook::Listener
 		attachment = {}
 		attachment[:text] = escape journal.notes if journal.notes
 		attachment[:fields] = journal.details.map { |d| detail_to_field d }
-		
+
 		directSpeak issue, msg, attachment, url if Setting.plugin_redmine_slack[:direct_speak] == '1'
-		
-		# send msg to old user that he was aware of
-		old_user_obj = "nil"
-		journal.details.map { |d| old_user_obj = d if d.prop_key == "assigned_to_id" }
-		if not old_user_obj == "nil"
-			olduser = User.find(old_user_obj.old_value) rescue nil
-			if olduser != nil
-				issue.assigned_to = olduser
-				directSpeak issue, msg, attachment, url, true if Setting.plugin_redmine_slack[:direct_speak] == '1'
-			end
-		end
-		
+
 		return unless channel and url and Setting.plugin_redmine_slack[:post_updates] == '1'
 		return if issue.is_private?
 
@@ -98,21 +87,10 @@ class SlackListener < Redmine::Hook::Listener
 		attachment[:fields] = journal.details.map { |d| detail_to_field d }
 
 		directSpeak issue, msg, attachment, url if Setting.plugin_redmine_slack[:direct_speak] == '1'
-		
-		# send msg to old user that he was aware of
-		old_user_obj = "nil"
-		journal.details.map { |d| old_user_obj = d if d.prop_key == "assigned_to_id" }
-		if not old_user_obj == "nil"
-			olduser = User.find(old_user_obj.old_value) rescue nil
-			if olduser != nil
-				issue.assigned_to = olduser
-				directSpeak issue, msg, attachment, url, true if Setting.plugin_redmine_slack[:direct_speak] == '1'
-			end
-		end
-		
+
 		return unless channel and url and issue.save
 		return if issue.is_private?
-		
+
 		speak msg, channel, attachment, url
 	end
 
@@ -249,8 +227,7 @@ private
 
 		short = true
 		value = escape detail.value.to_s
-		old_value = "nil"
-		
+
 		case key
 		when "title", "subject", "description"
 			short = false
@@ -272,15 +249,9 @@ private
 		when "assigned_to"
 			user = User.find(detail.value) rescue nil
 			value = escape user.to_s
-			
-			olduser = User.find(detail.old_value) rescue nil
-			old_value = escape olduser.to_s
 		when "fixed_version"
 			version = Version.find(detail.value) rescue nil
 			value = escape version.to_s
-			
-			oldversion = Version.find(detail.old_value) rescue nil
-			old_value = escape oldversion.to_s
 		when "attachment"
 			attachment = Attachment.find(detail.prop_key) rescue nil
 			value = "<#{object_url attachment}|#{escape attachment.filename}>" if attachment
@@ -293,7 +264,6 @@ private
 
 		result = { :title => title, :value => value }
 		result[:short] = true if short
-		result[:old_value] = old_value
 		result
 	end
 
