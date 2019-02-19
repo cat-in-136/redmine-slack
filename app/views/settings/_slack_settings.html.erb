@@ -85,3 +85,12 @@
 		<option value="DirectPost_IgnoreMyActions" <%= settings['direct_speak_rule'] != 'DirectPost_Disabled' ? %q(selected="selected") : '' %>>Send direct post if modified not by assignee user</option>
 	</select>
 </p>
+
+<p>
+	The direct message notification can be changed on a per-user basis by creating
+	<%= link_to 'a user custom field named "Enable Slack Direct Message" (without quotes)',
+		:controller => "custom_fields", :action => "new",
+		:type => UserCustomField,
+		"custom_field[field_format]" => "bool",
+    "custom_field[name]" => "Enable Slack Direct Message" %>
+</p>

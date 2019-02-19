@@ -3,6 +3,7 @@ require 'httpclient'
 class SlackListener < Redmine::Hook::Listener
 	def initialize
 		@slack_username_custom_field = UserCustomField.find_by_name("Slack Username")
+		@enable_slack_direct_message_custom_field = UserCustomField.find_by_name("Enable Slack Direct Message")
 	end
 
 	def redmine_slack_issues_new_after_save(context={})
@@ -527,6 +528,12 @@ private
 					users -= [page.content.author]
 				end
 			end
+		end
+
+		users = users.select do |user|
+			user.present? and
+        (@enable_slack_direct_message_custom_field.nil? or
+         ((user.custom_value_for(@enable_slack_direct_message_custom_field).value == "Yes") rescue nil))
 		end
 
 		users
