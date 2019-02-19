@@ -238,6 +238,31 @@ class SlackListener < Redmine::Hook::Listener
 		speak comment, channel, attachment, url
 	end
 
+	def redmine_slack_remainder_before_send(context = {})
+		if Setting.plugin_redmine_slack['direct_speak'] == '1'
+			user = context[:user]
+			issues = context[:issues]
+			days = context[:days]
+
+			msg = l(:mail_body_reminder, :count => issues.size, :days => days)
+			msg << "\n"
+			issues.each do |issue|
+				msg << " * <#{object_url issue.project}|#{escape issue.project}> - <#{object_url issue}|#{escape issue}}>\n"
+			end
+
+			channel = channel_for_project issues.first.project
+			url = url_for_project issues.first.project
+
+			return unless channel and url
+
+			attachment = {}
+
+			direct_speak([user], issues.first.project, msg, attachment, url)
+		else
+			nil
+		end
+	end
+
 	def speak(msg, channel, attachment=nil, url=nil)
 		url = Setting.plugin_redmine_slack['slack_url'] if not url
 		username = Setting.plugin_redmine_slack['username']
