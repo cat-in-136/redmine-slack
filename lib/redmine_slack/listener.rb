@@ -244,20 +244,22 @@ class SlackListener < Redmine::Hook::Listener
 			issues = context[:issues]
 			days = context[:days]
 
-			msg = l(:mail_body_reminder, :count => issues.size, :days => days)
-			msg << "\n"
-			issues.each do |issue|
-				msg << " * <#{object_url issue.project}|#{escape issue.project}> - <#{object_url issue}|#{escape issue}}>\n"
+			if user.present? and
+				(@enable_slack_direct_message_custom_field.nil? or
+				((user.custom_value_for(@enable_slack_direct_message_custom_field).value == "1") rescue nil))
+
+				msg = l(:mail_body_reminder, :count => issues.size, :days => days)
+				msg << "\n"
+				issues.each do |issue|
+					msg << " * <#{object_url issue.project}|#{escape issue.project}> - <#{object_url issue}|#{escape issue}}>\n"
+				end
+
+				attachment = {}
+
+				direct_speak([user], nil, msg, attachment)
+			else
+				nil
 			end
-
-			channel = channel_for_project issues.first.project
-			url = url_for_project issues.first.project
-
-			return unless channel and url
-
-			attachment = {}
-
-			direct_speak([user], issues.first.project, msg, attachment, url)
 		else
 			nil
 		end
@@ -323,7 +325,7 @@ class SlackListener < Redmine::Hook::Listener
 			client = HTTPClient.new
 			client.ssl_config.cert_store.set_default_paths
 			client.ssl_config.ssl_version = :auto
-			to_slack_usernames(recepient_users, project.id).each do |slack_username|
+			to_slack_usernames(recepient_users, project.try(:id)).each do |slack_username|
 				client.post_async url, {:payload => params.merge(:channel => "@#{slack_username}").to_json}
 			end
 		rescue Exception => e
@@ -557,8 +559,8 @@ private
 
 		users = users.select do |user|
 			user.present? and
-        (@enable_slack_direct_message_custom_field.nil? or
-         ((user.custom_value_for(@enable_slack_direct_message_custom_field).value == "Yes") rescue nil))
+				(@enable_slack_direct_message_custom_field.nil? or
+				 ((user.custom_value_for(@enable_slack_direct_message_custom_field).value == "1") rescue nil))
 		end
 
 		users
