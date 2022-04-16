@@ -1,6 +1,6 @@
 require 'redmine'
 
-require_dependency 'redmine_slack/listener'
+require File.expand_path('../lib/redmine_slack/listener', __FILE__)
 
 Redmine::Plugin.register :redmine_slack do
 	name 'Redmine Slack'
@@ -23,14 +23,25 @@ Redmine::Plugin.register :redmine_slack do
 		:partial => 'settings/slack_settings'
 end
 
-((Rails.version > "5")? ActiveSupport::Reloader : ActionDispatch::Callbacks).to_prepare do
-	require_dependency 'issue'
-	unless Issue.included_modules.include? RedmineSlack::IssuePatch
-		Issue.send(:include, RedmineSlack::IssuePatch)
+if Rails.version > '6.0' && Rails.autoloaders.zeitwerk_enabled?
+	Rails.application.config.after_initialize do
+		unless Issue.included_modules.include? RedmineSlack::IssuePatch
+			Issue.send(:include, RedmineSlack::IssuePatch)
+		end
+		unless News.included_modules.include? RedmineSlack::NewsPatch
+			News.send(:include, RedmineSlack::NewsPatch)
+		end
 	end
+else
+	((Rails.version > "5")? ActiveSupport::Reloader : ActionDispatch::Callbacks).to_prepare do
+		require_dependency 'issue'
+		unless Issue.included_modules.include? RedmineSlack::IssuePatch
+			Issue.send(:include, RedmineSlack::IssuePatch)
+		end
 
-	require_dependency 'news'
-	unless News.included_modules.include? RedmineSlack::NewsPatch
-		News.send(:include, RedmineSlack::NewsPatch)
+		require_dependency 'news'
+		unless News.included_modules.include? RedmineSlack::NewsPatch
+			News.send(:include, RedmineSlack::NewsPatch)
+		end
 	end
 end

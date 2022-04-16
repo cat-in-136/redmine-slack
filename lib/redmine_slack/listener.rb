@@ -1,6 +1,7 @@
 require 'httpclient'
 
-class SlackListener < Redmine::Hook::Listener
+module RedmineSlack
+class Listener < Redmine::Hook::Listener
 	def initialize
 		@slack_username_custom_field = UserCustomField.find_by_name("Slack Username")
 	end
@@ -442,4 +443,5 @@ private
 		slack_usernames = slack_usernames.uniq.map { |name| '@' + name }
 		slack_usernames.present? ? "\nTo: " + slack_usernames.join(' ') : nil
 	end
+end
 end
