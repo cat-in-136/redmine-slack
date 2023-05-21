@@ -44,4 +44,9 @@ else
 			News.send(:include, RedmineSlack::NewsPatch)
 		end
 	end
+
+	require_dependency 'mailer'
+	unless Mailer.included_modules.include? RedmineSlack::MailerPatch
+		Mailer.send(:include, RedmineSlack::MailerPatch)
+	end
 end

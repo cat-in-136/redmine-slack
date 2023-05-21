@@ -4,6 +4,7 @@ module RedmineSlack
 class Listener < Redmine::Hook::Listener
 	def initialize
 		@slack_username_custom_field = UserCustomField.find_by_name("Slack Username")
+		@enable_slack_direct_message_custom_field = UserCustomField.find_by_name("Enable Slack Direct Message")
 	end
 
 	def redmine_slack_issues_new_after_save(context={})
@@ -11,9 +12,6 @@ class Listener < Redmine::Hook::Listener
 
 		channel = channel_for_project issue.project
 		url = url_for_project issue.project
-
-		return unless channel and url
-		return if issue.is_private?
 
 		mentions = build_mentions(issue.assigned_to, issue.description, issue.project.identifier)
 		msg = "[#{escape issue.project}] #{escape issue.author} created <#{object_url issue}|#{escape issue}>#{mentions}"
@@ -40,6 +38,13 @@ class Listener < Redmine::Hook::Listener
 			:short => true
 		} if Setting.plugin_redmine_slack['display_watchers'] == 'yes'
 
+		if Setting.plugin_redmine_slack['direct_speak'] == '1'
+			direct_speak(direct_speak_recepient_users(issue), issue.project, msg, attachment, url)
+		end
+
+		return unless channel and url
+		return if issue.is_private?
+
 		speak msg, channel, attachment, url
 	end
 
@@ -51,9 +56,6 @@ class Listener < Redmine::Hook::Listener
 		channel = channel_for_project issue.project
 		url = url_for_project issue.project
 
-		return unless channel and url and Setting.plugin_redmine_slack['post_updates'] == '1'
-		return if issue.is_private?
-		return if journal.private_notes?
 		return if details.empty? and journal.notes.blank?
 
 		assignee_user = get_assignee_user journal
@@ -63,6 +65,14 @@ class Listener < Redmine::Hook::Listener
 		attachment = {}
 		attachment[:text] = escape journal.notes if journal.notes
 		attachment[:fields] = details.map { |d| detail_to_field d }
+
+		if Setting.plugin_redmine_slack['direct_speak'] == '1'
+			direct_speak(direct_speak_recepient_users(issue), issue.project, msg, attachment, url)
+		end
+
+		return unless channel and url and Setting.plugin_redmine_slack['post_updates'] == '1'
+		return if issue.is_private?
+		return if journal.private_notes?
 
 		speak msg, channel, attachment, url
 	end
@@ -74,9 +84,6 @@ class Listener < Redmine::Hook::Listener
 
 		channel = channel_for_project issue.project
 		url = url_for_project issue.project
-
-		return unless channel and url and issue.save
-		return if issue.is_private?
 
 		msg = "[#{escape issue.project}] #{escape journal.user.to_s} updated <#{object_url issue}|#{escape issue}>"
 
@@ -111,6 +118,13 @@ class Listener < Redmine::Hook::Listener
 		attachment[:text] = ll(Setting.default_language, :text_status_changed_by_changeset, "<#{revision_url}|#{escape changeset.comments}>")
 		attachment[:fields] = journal.details.map { |d| detail_to_field d }
 
+		if Setting.plugin_redmine_slack['direct_speak'] == '1'
+			direct_speak(direct_speak_recepient_users(issue), issue.project, msg, attachment, url)
+		end
+
+		return unless channel and url and issue.save
+		return if issue.is_private?
+
 		speak msg, channel, attachment, url
 	end
 
@@ -128,6 +142,7 @@ class Listener < Redmine::Hook::Listener
 		attachment = {}
 		attachment[:pretext] = escape news.summary if news.summary
 		attachment[:text] = escape news.description if news.description
+
 		speak comment, channel, attachment, url
 	end
 	def redmine_slack_news_edit_after_save(context={})
@@ -186,6 +201,10 @@ class Listener < Redmine::Hook::Listener
 		attachment = {}
 		attachment[:text] = "#{escape message.content}"
 
+		if Setting.plugin_redmine_slack['direct_speak'] == '1'
+			direct_speak(direct_speak_recepient_users(message), project, comment, attachment, url)
+		end
+
 		speak comment, channel, attachment, url
 	end
 
@@ -213,7 +232,38 @@ class Listener < Redmine::Hook::Listener
 			attachment[:text] = "#{escape page.content.comments}"
 		end
 
+		if Setting.plugin_redmine_slack['direct_speak'] == '1'
+			direct_speak(direct_speak_recepient_users(page), project, comment, attachment, url)
+		end
+
 		speak comment, channel, attachment, url
+	end
+
+	def redmine_slack_remainder_before_send(context = {})
+		if Setting.plugin_redmine_slack['direct_speak'] == '1'
+			user = context[:user]
+			issues = context[:issues]
+			days = context[:days]
+
+			if user.present? and
+				(@enable_slack_direct_message_custom_field.nil? or
+				((user.custom_value_for(@enable_slack_direct_message_custom_field).value == "1") rescue nil))
+
+				msg = l(:mail_body_reminder, :count => issues.size, :days => days)
+				msg << "\n"
+				issues.each do |issue|
+					msg << " * <#{object_url issue.project}|#{escape issue.project}> - <#{object_url issue}|#{escape issue}}>\n"
+				end
+
+				attachment = {}
+
+				direct_speak([user], nil, msg, attachment)
+			else
+				nil
+			end
+		else
+			nil
+		end
 	end
 
 	def speak(msg, channel, attachment=nil, url=nil)
@@ -244,6 +294,41 @@ class Listener < Redmine::Hook::Listener
 			client.ssl_config.cert_store.set_default_paths
 			client.ssl_config.ssl_version = :auto
 			client.post_async url, {:payload => params.to_json}
+		rescue Exception => e
+			Rails.logger.warn("cannot connect to #{url}")
+			Rails.logger.warn(e)
+		end
+	end
+
+	def direct_speak(recepient_users, project, msg, attachment=nil, url=nil, full=false)
+		url = Setting.plugin_redmine_slack['slack_url'] if not url
+		username = Setting.plugin_redmine_slack['username']
+		icon = Setting.plugin_redmine_slack['icon']
+
+		params = {
+			:text => msg,
+			:link_names => 1,
+		}
+
+		params[:username] = username if username
+
+		params[:attachments] = [attachment] if attachment
+
+		if icon and not icon.empty?
+			if icon.start_with? ':'
+				params[:icon_emoji] = icon
+			else
+				params[:icon_url] = icon
+			end
+		end
+
+		begin
+			client = HTTPClient.new
+			client.ssl_config.cert_store.set_default_paths
+			client.ssl_config.ssl_version = :auto
+			to_slack_usernames(recepient_users, project.try(:id)).each do |slack_username|
+				client.post_async url, {:payload => params.merge(:channel => "@#{slack_username}").to_json}
+			end
 		rescue Exception => e
 			Rails.logger.warn("cannot connect to #{url}")
 			Rails.logger.warn(e)
@@ -442,6 +527,44 @@ private
 		# Slack usernames to be mentioned
 		slack_usernames = slack_usernames.uniq.map { |name| '@' + name }
 		slack_usernames.present? ? "\nTo: " + slack_usernames.join(' ') : nil
+	end
+
+	def direct_speak_recepient_users(object)
+		users = []
+		if object.kind_of? Redmine::Acts::Watchable
+		dusers |= object.watcher_users.to_a
+		end
+
+		case object
+		when Issue
+			issue = object
+			# Filter1. Send direct post if issue was modified not by assignee user
+			if Setting.plugin_redmine_slack['direct_speak_rule'] == 'DirectPost_IgnoreMyActions'
+				if issue.current_journal #if issue is edited
+					users -= [issue.current_journal.user]
+				end
+			end
+		when Message
+			users |= object.parent.watcher_users.to_a if object.parent
+			if Setting.plugin_redmine_slack['direct_speak_rule'] == 'DirectPost_IgnoreMyActions'
+				users -= [object.author]
+			end
+		when WikiPage
+			page = object
+			if Setting.plugin_redmine_slack['direct_speak_rule'] == 'DirectPost_IgnoreMyActions'
+				if page.content #if page is edited
+					users -= [page.content.author]
+				end
+			end
+		end
+
+		users = users.select do |user|
+			user.present? and
+				(@enable_slack_direct_message_custom_field.nil? or
+				 ((user.custom_value_for(@enable_slack_direct_message_custom_field).value == "1") rescue nil))
+		end
+
+		users
 	end
 end
 end
